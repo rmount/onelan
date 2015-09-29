@@ -9,8 +9,11 @@ namespace onelan
     class Constants
     {
 
-        public const string gcVersion = "1.0";
-        public const string gcVersionDate = "27-Sep-2015";
+       // public const string gcVersion = "1.0";
+      //  public const string gcVersionDate = "27-Sep-2015";
+
+        public const string gcVersion = "1.1";
+        public const string gcVersionDate = "29-Sep-2015";
 
         public const string gcInfo = "Info";
         public const string gcWarning = "Warning";

@@ -22,8 +22,12 @@ using WinSCP;
 // public static Boolean bProcessImage(String sSourceFolder, String sSourceImage, String sNewFolder)
 // public static Boolean bRefreshData(String sDatabaseLocation)
 // public static Boolean bExportDataToXML(String sDatabaseLocation)
+// public static Boolean bExportDataToSql(String sDatabaseLocation, Boolean bDebug)
 // public static Boolean bsFtp(String sFtpSite, String sUserName, String sPassword, String sSshHostKeyFingerprint, String sDatabaseLocation, Boolean bSearchAll = false, Boolean bDebug = false, Boolean bExposeCredentials = false)
  
+//
+// Modification history
+// 29-Sep-2015 Output to sql file
 
 
 namespace onelan
@@ -120,7 +124,8 @@ namespace onelan
                 // Refresh data
                 bOk = bRefreshData(sDatabaseLocation, bDebug);
                 // Export to xml
-                if (bOk){ bOk = bExportDataToXML(sDatabaseLocation, bDebug);}
+               // if (bOk){ bOk = bExportDataToXML(sDatabaseLocation, bDebug);}
+                if (bOk) { bOk = bExportDataToSql(sDatabaseLocation, bDebug); }
                 // Post of sftp site
                 if (bOk && bPostToSftp) { bOk = bsFtp(sFtpSite, sFtpSiteUserName, sFtpSitePassword, sHostKey, sDatabaseLocation, false, bDebug, false); }
             }
@@ -471,13 +476,193 @@ namespace onelan
 
             }
 
-
+        // End of Post data via sftp
+        //
         }
 
+        public static Boolean bExportDataToSql(String sDatabaseLocation, Boolean bDebug)
+        {
+
+
+            clsLog clsLog_ = new clsLog(msLogFile, msVersionData);
+            clsError clsError_ = new clsError();
+
+            ADODB.Connection conn = new ADODB.Connection();
+            ADODB.Recordset rs = new ADODB.Recordset();
+
+            clsLog_.mLog(Constants.gcInfo, "Exporting data to sql ...");
+
+
+            String sSqlfile = sDatabaseLocation + "\\data\\OneLanData.sql";
+            String sString = null;
+            String sPropertyInsertIntoHeader = null;
+            String sAccomInsertIntoHeader = null;
+            Int16 i = 0;
+
+            //String sSql = null;
+            // Variable to hold website information - needed to strip any single quotes out
+            String sWebsite = null;
+
+
+            if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bExportDataToSql, sSqlfile = " + sSqlfile); }
+
+            try
+            {
+
+                // Open connection to database
+                conn.Open(gcDSN + sDatabaseLocation + "\\" + gsOneLanDatabase);
+
+                // Remove previous versions of the file 
+                if (File.Exists(sSqlfile)) { File.Delete(sSqlfile); }
+
+                // Open streamwriter obbject
+                StreamWriter sw = File.AppendText(sSqlfile);
+
+                // Set the insert commands
+                sw.WriteLine("-- File : "+ sSqlfile);
+                sw.WriteLine("-- Date : " + DateTime.Now.ToString("dd-MMM-yyyy HH:mm:ss"));
+                sw.WriteLine("-- Author : auto-sgenerated / NRE www.rmount.co.uk");
+                sw.WriteLine("-- Client : Raeburn Christie, Aberdeen");
+                sw.WriteLine("-- Purpose : Repopulate Raeburn mysql database of property data, for use in property screens");
+                sw.WriteLine("");
+                sw.WriteLine("-- To apply mysql -pusername -ppassword < " + sSqlfile);
+                sw.WriteLine("");
+                sw.WriteLine("-- Purge Property table ...");
+                sw.WriteLine("DELETE FROM property;");
+                sw.WriteLine("");
+                sw.WriteLine("-- Repopulate Property table ...");
+                sPropertyInsertIntoHeader = " INSERT INTO `property` (`PropID`, `PropertyAddress1`, `PropertyAddress2`, `PropertyAddress3`, `Price`, `OffersOverEtc`, `ClosingDate`, `UnderOffer`, `PropertyAddress4`, `Postcode`, `RCCWOffice`) VALUES";
+                sAccomInsertIntoHeader = "INSERT INTO `accom` (`PropID`, `Accom`, `Website`) VALUES";
+
+                // Open the recordset
+                rs.Open("SELECT * FROM property ORDER BY PropID", conn, ADODB.CursorTypeEnum.adOpenForwardOnly, ADODB.LockTypeEnum.adLockOptimistic, -1);
+                if (!rs.EOF)
+                {
+                   sw.WriteLine(sPropertyInsertIntoHeader);
+                    while (!rs.EOF)
+                    {
+                        if (i == 150)
+                        {
+                            sw.WriteLine(sPropertyInsertIntoHeader);
+                            i = 0;
+                        }
+
+                        sString = "(" + rs.Fields["PropID"].Value + ",'" +
+                                  rs.Fields["PropertyAddress1"].Value + "','" +
+                                  rs.Fields["PropertyAddress2"].Value + "','" +
+                                  rs.Fields["PropertyAddress3"].Value + "'," +
+                                  rs.Fields["Price"].Value + ",'" +
+                                  rs.Fields["OffersOverEtc"].Value + "','" +
+                                  rs.Fields["ClosingDate"].Value + "','" +
+                                  rs.Fields["UnderOffer"].Value + "','" +
+                                  rs.Fields["PropertyAddress4"].Value + "','" +
+                                  rs.Fields["Postcode"].Value + "','" +
+                                  rs.Fields["RCCWOffice"].Value + "')";
+                        //sString = " i = " + i + ", PropID = " + rs.Fields["PropID"].Value;
+                        i++;
+                        if (i<150)
+                        {sString = sString + ",";
+                        }
+                        else 
+                        {
+                        sString = sString + ";";
+                        }
+                        
+
+                        rs.MoveNext();
+                        // Replace '' with NULL
+                        sString = sString.Replace("''", "NULL");
+                        if (!rs.EOF) { sw.WriteLine(sString); }
+                    // end while 
+                    }
+
+                // End if
+                }
+                //sw.Close();
+                rs.Close();
+                // Replace last comma with a semi colon
+                // Replace '' with NULL
+                //sString = sString.Replace("''", "NULL");
+                sString = sString.Remove(sString.Length - 1, 1) + ";";
+                // Add the last line
+                sw.WriteLine(sString);
+                
+                // 
+                // Now do the accom
+                sw.WriteLine("");
+                sw.WriteLine("-- Purge accom table ...");
+                sw.WriteLine("DELETE FROM accom;");
+                sw.WriteLine("");
+                sw.WriteLine("-- Repopulate accom table ...");
+                rs.Open("SELECT * FROM accom ORDER BY PropID", conn, ADODB.CursorTypeEnum.adOpenForwardOnly, ADODB.LockTypeEnum.adLockOptimistic, -1);
+                if (!rs.EOF)
+                {
+                     sw.WriteLine(sAccomInsertIntoHeader);
+                    while (!rs.EOF)
+                    {
+                        if (i == 150)
+                        {
+                            sw.WriteLine(sAccomInsertIntoHeader);
+                            i = 0;
+                        }
+                        sWebsite = "";
+                        sWebsite = rs.Fields["Website"].Value;
+                        // strip any single quotes off website information
+                        sWebsite = sWebsite.Replace("'", "");
+                        sString = "(" + rs.Fields["PropID"].Value + "," +
+                                  "NULL" + ",'" +
+                                  sWebsite + "')";
+                        i++;
+                        if (i < 150)
+                        {
+                            sString = sString + ",";
+                        }
+                        else
+                        {
+                            sString = sString + ";";
+                        }
+
+
+                        rs.MoveNext();
+                        // Replace '' with NULL
+                        sString = sString.Replace("''", "NULL");
+                        // Force mysql null date format
+                        sString = sString.Replace("30/12/1899 00:00:00","1899-12-30 00:00:00");
+                        if (!rs.EOF) { sw.WriteLine(sString); }
+                        // end while 
+                    }
+
+                    // End if
+                }
+                //sw.Close();
+                rs.Close();
+                // Replace last comma with a semi colon
+                // Replace '' with NULL
+                sString = sString.Replace("''", "NULL");
+                sString = sString.Remove(sString.Length - 1, 1) + ";";
+                // Add the last line
+                sw.WriteLine(sString);
 
 
 
-    }
+                sw.Close();
+
+                return true;
+            }
+
+            catch (Exception e)
+            {
+                clsError_.mLogError("Problem exporting data to sql", "onelan", "bExportDataToSql", e, msVersionData, msLogFile, true);
+                return false;
+            }
+
+        // End of export data to ssql
+        }
+        
+
     // End of class
-}
+    }
+
 // End of NameSpace
+}
+
