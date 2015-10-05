@@ -27,8 +27,11 @@ using WinSCP;
  
 //
 // Modification history
-// 29-Sep-2015 Output to sql file
-
+// Who When        Ref  Notes
+// NRE 29-Sep-2015 1542 Output to sql file
+//     30-Sep-2015      Set all calls to gError to not alert user via msg
+//     02-Oct-2015      Improve error handling of synchronisation
+//     05-Oct-2015 1554 Delete accom, then property, then repopualte
 
 namespace onelan
 {
@@ -97,6 +100,8 @@ namespace onelan
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "TargetDir = " + sTargetDir); }
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "DatabaseLocation = " + sDatabaseLocation); }
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "PostToSftp = " + bPostToSftp); }
+                if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "FtpSite = " + sFtpSite); }
+                if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "Debug = " + bDebug); }
 
                 // Parse source folders
                 String[] sSourcefolders = Directory.GetDirectories(sSourceDir);
@@ -197,7 +202,7 @@ namespace onelan
             catch (Exception e)
             {
 
-                clsError_.mLogError("Problem processing image", "onelan", "Main", e, msVersionData, msLogFile, bAlertUser);
+                clsError_.mLogError("Problem processing image", "onelan", "Main", e, msVersionData, msLogFile, false);
                 return false;
             }
 
@@ -220,7 +225,7 @@ namespace onelan
 
                 clsLog_.mLog(Constants.gcInfo, "Refreshing data ..."); 
 
-                if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bRefreshData, connection =" + sDatabaseLocation + gsOneLanDatabase); }
+                if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bRefreshData, database =" + sDatabaseLocation +"\\" + gsOneLanDatabase); }
                 // Open connection to database
                 conn.Open(gcDSN + sDatabaseLocation + "\\" + gsOneLanDatabase);
 
@@ -330,7 +335,7 @@ namespace onelan
             }
             catch (Exception e)
             {
-                clsError_.mLogError("Problem running onelan interface", "onelan", "bRefreshData", e, msVersionData, msLogFile, true);
+                clsError_.mLogError("Problem running onelan interface", "onelan", "bRefreshData", e, msVersionData, msLogFile,false);
                 return false;
             }
 
@@ -379,7 +384,7 @@ namespace onelan
             }
             catch (Exception e)
             {
-               clsError_.mLogError("Problem exporting data to xml", "onelan", "bExportDataToXML", e, msVersionData, msLogFile, true);
+               clsError_.mLogError("Problem exporting data to xml", "onelan", "bExportDataToXML", e, msVersionData, msLogFile, false);
                return false;
             }
 
@@ -406,6 +411,9 @@ namespace onelan
 
                 clsLog_.mLog(Constants.gcInfo, "Posting data to sftp site ...");
 
+                byte[] data = Convert.FromBase64String(sPassword);
+                String decodedSitePassword = Encoding.UTF8.GetString(data); 
+
                 //clsLog_.mLog(Constants.gcInfo, "");
                // clsLog_.mLog(Constants.gcInfo, "onelan.bsFtp, sftp (winscp) process starting **************");
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent +"onelan.bsFtp, sftpSite = " + sFtpSite); }
@@ -428,7 +436,7 @@ namespace onelan
                     Protocol = Protocol.Sftp,
                     HostName = sFtpSite,
                     UserName = sUserName,
-                    Password = sPassword,
+                    Password = decodedSitePassword,
                     SshHostKeyFingerprint = sSshHostKeyFingerprint
 
                 };
@@ -438,6 +446,7 @@ namespace onelan
                     // Connect
                     if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bsFtp, connecting ..."); }
                     session.Open(sessionOptions);
+           
 
                     // Upload files
                     if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bsFtp, uploading ..."); }
@@ -445,15 +454,18 @@ namespace onelan
                     // Get list of directories to transfer
 
                     // Will continuously report progress of synchronization
-                    //if (bDebug) { session.FileTransferred += FileTransferred; }
+                   // if (bDebug) { session.FileTransferred += FileTransferred; }
+
+                    if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bsFtp, Processing sql files ..."); }
+                    // Synchronise the xml directory
+                    synchronizationResult = session.SynchronizeDirectories(SynchronizationMode.Remote, sDatabaseLocation + "\\data", "onelan/data", true);
+                    synchronizationResult.Check();
 
                     if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bsFtp, Posting images ..."); }
+                    synchronizationResult = session.SynchronizeDirectories(SynchronizationMode.Remote, sDatabaseLocation + "\\images", "onelan/images", false);
+                    synchronizationResult.Check();
 
-                    synchronizationResult = session.SynchronizeDirectories(SynchronizationMode.Remote, sDatabaseLocation + "\\images", "images", false);
 
-                    if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "onelan.bsFtp, Processing xml files ..."); }
-                    // Synchronise the xml directory
-                    synchronizationResult = session.SynchronizeDirectories(SynchronizationMode.Remote, sDatabaseLocation + "\\xml", "xml", false);
 
                     // Clean up
                     session.Dispose();
@@ -466,7 +478,7 @@ namespace onelan
             }
             catch (Exception e)
             {
-                clsError_.mLogError("Problem running sftpTransfer", "onelan", "bsFtp", e, msVersionData, msLogFile, true);
+                clsError_.mLogError("Problem running sftpTransfer", "onelan", "bsFtp", e, msVersionData, msLogFile, false);
                 return false;
             }
 
@@ -527,6 +539,8 @@ namespace onelan
                 sw.WriteLine("");
                 sw.WriteLine("-- To apply mysql -pusername -ppassword < " + sSqlfile);
                 sw.WriteLine("");
+                sw.WriteLine("-- Purge accom table ...");
+                sw.WriteLine("DELETE FROM accom;");
                 sw.WriteLine("-- Purge Property table ...");
                 sw.WriteLine("DELETE FROM property;");
                 sw.WriteLine("");
@@ -572,6 +586,8 @@ namespace onelan
                         rs.MoveNext();
                         // Replace '' with NULL
                         sString = sString.Replace("''", "NULL");
+                        // Force mysql null date format
+                        sString = sString.Replace("30/12/1899 00:00:00", "1899-12-30 00:00:00");
                         if (!rs.EOF) { sw.WriteLine(sString); }
                     // end while 
                     }
@@ -626,8 +642,6 @@ namespace onelan
                         rs.MoveNext();
                         // Replace '' with NULL
                         sString = sString.Replace("''", "NULL");
-                        // Force mysql null date format
-                        sString = sString.Replace("30/12/1899 00:00:00","1899-12-30 00:00:00");
                         if (!rs.EOF) { sw.WriteLine(sString); }
                         // end while 
                     }

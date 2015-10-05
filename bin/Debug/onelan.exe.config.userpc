@@ -7,10 +7,11 @@
 	  <add key="SourceDir" value="C:\Projects\mantis\1541OneLan\LiveProperties"/>
 	  <add key="TargetDir" value="C:\xampp\htdocs\raeburn_new\images\"/>
 	  <add key="DatabaseLocation" value="C:\xampp\htdocs\raeburn_new"/>
-	  <add key="FtpSite" value="134.213.28.249"/>
-	  <add key="FtpSiteUserName" value="raeburns"/>
-	  <add key="FtpSitePassword" value="bmRhNWQyaGczNmQwOUZH"/>
-	  <add key="HostKey" value="ssh-rsa 2048 cf:94:d3:37:30:4e:79:e0:ee:61:ba:e6:6d:1e:bf:5a"/>
+	  <add key="FtpSite" value="user-pc"/>
+	  <add key="FtpSiteUserName" value="rc"/>
+	  <!--add key="FtpSitePassword" value="rc"/-->
+	  <add key="FtpSitePassword" value="cmM="/>
+	  <add key="HostKey" value="ssh-rsa 1024 90:41:72:f8:05:92:7a:e9:09:3e:29:73:94:38:45:a0"/>
 	  <add key="Debug" value="true"/>
 	  <add key="PostToSftp" value="true"/>
 	</appSettings>

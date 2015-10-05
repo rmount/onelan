@@ -12,6 +12,6 @@
 	  <add key="FtpSitePassword" value="bmRhNWQyaGczNmQwOUZH"/>
 	  <add key="HostKey" value="ssh-rsa 2048 cf:94:d3:37:30:4e:79:e0:ee:61:ba:e6:6d:1e:bf:5a"/>
 	  <add key="Debug" value="true"/>
-	  <add key="PostToSftp" value="true"/>
+	  <add key="PostToSftp" value="false"/>
 	</appSettings>
 </configuration>
