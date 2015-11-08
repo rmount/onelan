@@ -15,6 +15,8 @@ using System.IO;
 // NRE 27-Sep-2015      Log to console
 
 namespace onelan
+// Mods
+    // NRE 08-Nov-2015 1562 set bMsgbox to default false
 {
     class clsError
     {
@@ -28,7 +30,7 @@ namespace onelan
         /// <param name="sVersionData">Version Number and Published Date.</param>
         /// <param name="sLogFile">Fileapth to the Log file to write the error to.</param>
         /// <returns></returns>
-        public bool mLogError(string sInfo, string sClass, string sMethod, Exception e, string sVersionData, string sLogFile, Boolean bMsgbox = true)
+        public bool mLogError(string sInfo, string sClass, string sMethod, Exception e, string sVersionData, string sLogFile, Boolean bMsgbox = false)
         {
             string sErrorMessage;
             

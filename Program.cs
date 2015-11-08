@@ -34,6 +34,7 @@ using WinSCP;
 //     02-Oct-2015      Improve error handling of synchronisation
 //     05-Oct-2015 1554 Delete accom, then property, then repopulate
 //     06-Nov-2015 1578 Reference OfferDate when determining if a property is under offer
+//     08-Nov-2015 1580 Fix extract format of closing date
 
 namespace onelan
 {
@@ -46,7 +47,7 @@ namespace onelan
         // Indent for debug logs
         public const String sIndent = "  ";
 
-       public const String msLogFile= "M:\\Property\\onelan\\onelan.log";
+        public const String msLogFile = "M:\\Property\\onelan\\onelan.log";
        // public const String msLogFile = "C:\\Projects\\rc\\Property\\onelan\\onelan.log";
         public const String msVersionData = Constants.gcVersion + "; " + Constants.gcVersionDate;
 
@@ -78,6 +79,11 @@ namespace onelan
             try
             {
 
+                if (!Directory.Exists("M:\\Property\\onelan")) {
+                  //  msLogFile =  Directory.GetCurrentDirectory()+"onelan.log";
+                    Console.Write("Failed to open "+msLogFile);
+                   System.Environment.Exit(1);
+                }
                 clsLog_.mLog(Constants.gcInfo, "");
                 clsLog_.mLog(Constants.gcInfo, "");
                 clsLog_.mLog(Constants.gcInfo, "*** Starting RC Onelan Interface ...");
@@ -105,6 +111,10 @@ namespace onelan
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "PostToSftp = " + bPostToSftp); }
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "FtpSite = " + sFtpSite); }
                 if (bDebug) { clsLog_.mLog(Constants.gcInfo, sIndent + "Debug = " + bDebug); }
+
+
+                // Check we can log to file
+               // if DirectoryNotFoundException
 
                 // Parse source folders
                 String[] sSourcefolders = Directory.GetDirectories(sSourceDir);
@@ -139,6 +149,8 @@ namespace onelan
             }
             catch (Exception e)
             {
+                 
+
                 clsError_.mLogError("Problem running onelan interface", "onelan", "Main", e, msVersionData, msLogFile, bAlertUser);
 
             }
@@ -514,6 +526,7 @@ namespace onelan
             clsLog_.mLog(Constants.gcInfo, "Exporting data to sql ...");
 
 
+            String sSql;
             String sSqlfile = sDatabaseLocation + "\\data\\OneLanData.sql";
             String sString = null;
             String sPropertyInsertIntoHeader = null;
@@ -558,7 +571,23 @@ namespace onelan
                 sAccomInsertIntoHeader = "INSERT INTO `accom` (`PropID`, `Accom`, `Website`) VALUES";
 
                 // Open the recordset
-                rs.Open("SELECT * FROM property ORDER BY PropID", conn, ADODB.CursorTypeEnum.adOpenForwardOnly, ADODB.LockTypeEnum.adLockOptimistic, -1);
+                //rs.Open("SELECT * FROM property ORDER BY PropID", conn, ADODB.CursorTypeEnum.adOpenForwardOnly, ADODB.LockTypeEnum.adLockOptimistic, -1);
+                sSql= "SELECT PropID" +
+                      "     , PropertyAddress1" +  
+                      "     , PropertyAddress2" +  
+                      "     , PropertyAddress3" +  
+                      "     , Price"  +
+                      "     , OffersOverEtc"  +
+                      "     , Format(ClosingDate,'YYYY-MM-DD HH:NN:SS') as cd" +
+                      "     , UnderOffer"  +
+                      "     , PropertyAddress4"  +
+                      "     , Postcode"  +
+                      "     , RCCWOffice" +
+                      "  FROM property" +
+                      " ORDER BY PropID";
+                clsLog_.mLog("INFO", "property extract sql = " + sSql);
+                rs.Open (sSql,conn, ADODB.CursorTypeEnum.adOpenForwardOnly, ADODB.LockTypeEnum.adLockOptimistic, -1);
+
                 if (!rs.EOF)
                 {
                    sw.WriteLine(sPropertyInsertIntoHeader);
@@ -570,13 +599,24 @@ namespace onelan
                             i = 0;
                         }
 
+                     //   sString = "(" + rs.Fields["PropID"].Value + ",'" +
+                     //             rs.Fields["PropertyAddress1"].Value + "','" +
+                     //             rs.Fields["PropertyAddress2"].Value + "','" +
+                     //             rs.Fields["PropertyAddress3"].Value + "'," +
+                     //             rs.Fields["Price"].Value + ",'" +
+                     //             rs.Fields["OffersOverEtc"].Value + "','" +
+                     //             rs.Fields["ClosingDate"].Value + "','" +
+                     //             rs.Fields["UnderOffer"].Value + "','" +
+                     //             rs.Fields["PropertyAddress4"].Value + "','" +
+                     //             rs.Fields["Postcode"].Value + "','" +
+                     //             rs.Fields["RCCWOffice"].Value + "')";
                         sString = "(" + rs.Fields["PropID"].Value + ",'" +
                                   rs.Fields["PropertyAddress1"].Value + "','" +
                                   rs.Fields["PropertyAddress2"].Value + "','" +
                                   rs.Fields["PropertyAddress3"].Value + "'," +
                                   rs.Fields["Price"].Value + ",'" +
                                   rs.Fields["OffersOverEtc"].Value + "','" +
-                                  rs.Fields["ClosingDate"].Value + "','" +
+                                  rs.Fields["cd"].Value + "','" +
                                   rs.Fields["UnderOffer"].Value + "','" +
                                   rs.Fields["PropertyAddress4"].Value + "','" +
                                   rs.Fields["Postcode"].Value + "','" +
@@ -675,7 +715,7 @@ namespace onelan
 
             catch (Exception e)
             {
-                clsError_.mLogError("Problem exporting data to sql", "onelan", "bExportDataToSql", e, msVersionData, msLogFile, true);
+                clsError_.mLogError("Problem exporting data to sql", "onelan", "bExportDataToSql", e, msVersionData, msLogFile, false);
                 return false;
             }
 

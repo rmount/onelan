@@ -15,8 +15,11 @@ namespace onelan
 //        public const string gcVersion = "1.1";
 //        public const string gcVersionDate = "05-Oct-2015";
 
-        public const string gcVersion = "1.2";
-        public const string gcVersionDate = "07-Nov-2015";
+//        public const string gcVersion = "1.2";
+//        public const string gcVersionDate = "07-Nov-2015";
+
+        public const string gcVersion = "1.3";
+        public const string gcVersionDate = "08-Nov-2015";
 
 
         public const string gcInfo = "Info";
