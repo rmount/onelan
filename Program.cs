@@ -7,6 +7,7 @@ using System.Data.OleDb;
 using System.Windows.Forms;
 using System.IO;
 using System.Configuration;
+using System.Diagnostics;
 using WinSCP;
 
 
@@ -31,7 +32,8 @@ using WinSCP;
 // NRE 29-Sep-2015 1542 Output to sql file
 //     30-Sep-2015      Set all calls to gError to not alert user via msg
 //     02-Oct-2015      Improve error handling of synchronisation
-//     05-Oct-2015 1554 Delete accom, then property, then repopualte
+//     05-Oct-2015 1554 Delete accom, then property, then repopulate
+//     06-Nov-2015 1578 Reference OfferDate when determining if a property is under offer
 
 namespace onelan
 {
@@ -44,7 +46,8 @@ namespace onelan
         // Indent for debug logs
         public const String sIndent = "  ";
 
-        public const String msLogFile= "M:\\Property\\onelan\\onelan.log";
+       public const String msLogFile= "M:\\Property\\onelan\\onelan.log";
+       // public const String msLogFile = "C:\\Projects\\rc\\Property\\onelan\\onelan.log";
         public const String msVersionData = Constants.gcVersion + "; " + Constants.gcVersionDate;
 
         // Alert user of errors?
@@ -273,7 +276,7 @@ namespace onelan
                         ",rc.Price" +
                         ",rc.OffersOverEtc" +
                         ",rc.RCCWOffice" +
-                        ",rc.UnderOffer" +
+                        ",iif(ISNULL(rc.OfferDate),0,1)" +
                         ",rc.ClosingDate" +
                         "  FROM PropertyDetailsRC rc" +
                         " WHERE rc.sold=0" +
@@ -283,6 +286,9 @@ namespace onelan
                         "    FROM Property p2" +
                         "   WHERE p2.propid = rc.propid)";
 	            conn.Execute(sSql, out RecordsAffected, -1);	  
+                // UNderOffer
+               // clsLog_.mLog("INFO", sSql);
+               // Debug.WriteLine(" insert sql = " + sSql);
 	  
                 //1.4 Update property details to ensure current with main system	  
                 sSql = "UPDATE property p," +
@@ -295,6 +301,7 @@ namespace onelan
                         "      ,p.Price= rc.Price" +
                         "      ,p.OffersOverEtc= rc.OffersOverEtc" +
                         "      ,p.ClosingDate= rc.ClosingDate" +
+                        "      ,p.UnderOffer  = iif(ISNULL(rc.OfferDate),0,1)" +
                         " WHERE p.Propid = rc.Propid" +
                         "   AND (" +
                         "       p.PropertyAddress1 <> rc.PropertyAddress1" +
@@ -305,8 +312,10 @@ namespace onelan
                         "    OR p.Price <> rc.Price" +
                         "    OR p.OffersOverEtc <> rc.OffersOverEtc" +
                         "    OR p.ClosingDate <> rc.ClosingDate" +
+                        "    OR (p.UnderOffer= '0' AND rc.OfferDate IS NOT NULL)" +
                         " )";
-
+              //  clsLog_.mLog("INFO", sSql);
+                conn.Execute(sSql, out RecordsAffected, -1);
                 // Fix the closing date
                 //1.4.1 Update null closing date to 00:00:00
 
